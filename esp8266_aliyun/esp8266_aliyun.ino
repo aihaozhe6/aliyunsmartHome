@@ -1,12 +1,28 @@
+//Vcc---Vcc
+//GND---GND
+//CS--- D8 / 1k ohm resistor
+//Reset---D1
+//D/C--- D2 /1k ohm resistor
+//SDI/mosi---D7 / 1k ohm resistor
+//SCK---D5 / 1k ohm resistor
+//LED---Vcc
+
 #include <ESP8266WiFi.h>
 /* 依赖 PubSubClient 2.4.0 */
 #include <PubSubClient.h>
 /* 依赖 ArduinoJson 5.13.4 */
 #include <ArduinoJson.h>
+
 #include <UTFT.h>
 #include <SPI.h>
 #define SENSOR_PIN    13
- 
+
+
+#include <SimpleDHT.h>
+int pinDHT11=16;
+SimpleDHT11 dht11(pinDHT11);
+byte temperature = 0;
+byte humidity = 0;
 /* 修改1 ------------------------------------------ */
 /* 连接您的WIFI SSID和密码 */
 #define WIFI_SSID         "Hold"
@@ -110,10 +126,9 @@ void mqttIntervalPost()
 {
     char param[32];
     char jsonBuf[128];
-    int a=25;
-    int b=165;
+
 /* 修改4 ------------------------------------------ */
-    sprintf(param, "{\"mtemp\":%d,\"mlux\":%d}", a,b);
+    sprintf(param, "{\"mtemp\":%d,\"mhumi\":%d}", (int)temperature,(int)humidity);
  
 /* 修改4 end--------------------------------------- */
  
@@ -123,15 +138,15 @@ void mqttIntervalPost()
     Serial.print("上传数据");
     Serial.println(d);
 }
-void Display(int x,int y,int index,double pm,double temp,double hum)
+void Display(int x,int y,int index,double temp,double hum)
 {
-    myGLCD.setColor ( 144, 30, 255 );
-    myGLCD.setFont(BigFont);//设置字体大小
-    myGLCD.print ( String("PM2.5"), x, y );
-    myGLCD.setFont(SmallFont);//设置字体大小
-    myGLCD.setColor ( 144, 255, y );
-    myGLCD.printNumF(pm,2,100,y+3);
-    myGLCD.print ( String("mg"), 135, y+3 );
+//    myGLCD.setColor ( 144, 30, 255 );
+//    myGLCD.setFont(BigFont);//设置字体大小
+//    myGLCD.print ( String("PM2.5"), x, y );
+//    myGLCD.setFont(SmallFont);//设置字体大小
+//    myGLCD.setColor ( 144, 255, y );
+//    myGLCD.printNumF(pm,2,100,y+3);
+//    myGLCD.print ( String("mg"), 135, y+3 );
     
     myGLCD.setColor ( 144, 30, 255 );
     myGLCD.setFont(BigFont);//设置字体大小
@@ -168,7 +183,7 @@ void setup()
     int x, x2;
     int y, y2;
     int r;
-    double pm=0.06;
+  
     double temp=25.5;
     double hum=41.1;
     // Clear the screen and draw the frame
@@ -188,13 +203,14 @@ void setup()
     myGLCD.drawRect ( 0, 13, 159, 113 );
     //显示屏end//
     myGLCD.setBackColor ( 0, 0, 0 );
-    Display(10,30,20,pm,temp,hum);
+    
+    Display(10,30,20,temp,hum);
 }   
 
 // the loop function runs over and over again forever
 void loop()
 {
-    if (millis() - lastMs >= 5000)
+    if (millis() - lastMs >= 100000)
     {
         lastMs = millis();
         mqttCheckConnect(); 
@@ -204,7 +220,18 @@ void loop()
  
     client.loop();
 
-    delay(2000);
+   
     //TODO 读取数据显示
- 
+  
+     int err = SimpleDHTErrSuccess;
+     if ((err = dht11.read(&temperature, &humidity, NULL)) != SimpleDHTErrSuccess) {
+        Serial.print("Read DHT11 failed, err="); Serial.println(err);delay(1000);
+        return;
+      }
+      Serial.print("Sample OK: ");
+      Serial.print((int)temperature); Serial.print(" *C, "); 
+      Serial.print((int)humidity); Serial.println(" H");
+       Display(10,30,20,(int)temperature,(int)humidity);
+      // DHT11 sampling rate is 1HZ.
+      delay(2000);
 }
